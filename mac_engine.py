@@ -377,6 +377,11 @@ def run_mac(
         data = data[data["PitcherThrows"] == pitcher_hand].copy()
         pitcher_df = data[data["Pitcher"] == pitcher_name].copy()
 
+    # Match the original MLB flow more closely: only keep the selected pitcher's pitches
+    # plus the pitch histories for the selected hitters before running similarity.
+    hitter_set = set(hitters)
+    data = data[(data["Pitcher"] == pitcher_name) | (data["Batter"].isin(hitter_set))].copy()
+
     data = data.dropna(subset=SIMILARITY_FEATURES + ["Pitcher", "Batter"]).copy()
     pitcher_df = pitcher_df.dropna(subset=SIMILARITY_FEATURES + ["Pitcher", "Batter"]).copy()
     if pitcher_df.empty:

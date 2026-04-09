@@ -348,23 +348,25 @@ def run_mac(
     if pitcher_df.empty:
         raise ValueError("The selected pitcher does not have enough pitch data.")
 
-    scaler = build_feature_scaler(data, SIMILARITY_FEATURES)
     pitcher_clusters, pitcher_cluster_points, cluster_model, cluster_scaler, cluster_to_type = build_pitcher_clusters(
         pitcher_df,
         max_clusters=max_clusters,
     )
 
-    reference_values = pitcher_df[SIMILARITY_FEATURES].div(scaler[SIMILARITY_FEATURES], axis=1).to_numpy(dtype=float)
-    hitter_values = data[SIMILARITY_FEATURES].div(scaler[SIMILARITY_FEATURES], axis=1).to_numpy(dtype=float)
-    deltas = hitter_values[:, None, :] - reference_values[None, :, :]
+    scan_scaler = StandardScaler()
+    data_scaled = scan_scaler.fit_transform(data[SIMILARITY_FEATURES])
+    pitcher_scaled = scan_scaler.transform(pitcher_df[SIMILARITY_FEATURES])
+    deltas = data_scaled[:, None, :] - pitcher_scaled[None, :, :]
     data["MinDistToPitcher"] = np.sqrt((deltas ** 2).sum(axis=2)).min(axis=1)
 
     data["PitchGroup"] = pd.NA
+    data["PitchCluster"] = pd.NA
     cluster_ready = data.dropna(subset=CLUSTER_FEATURES).copy()
     if not cluster_ready.empty:
         cluster_ready_scaled = cluster_scaler.transform(cluster_ready[CLUSTER_FEATURES])
         cluster_ready["PitchCluster"] = cluster_model.predict(cluster_ready_scaled)
         cluster_ready["PitchGroup"] = cluster_ready["PitchCluster"].map(cluster_to_type).fillna("Unknown")
+        data.loc[cluster_ready.index, "PitchCluster"] = cluster_ready["PitchCluster"]
         data.loc[cluster_ready.index, "PitchGroup"] = cluster_ready["PitchGroup"]
 
     cluster_rows: list[dict[str, object]] = []
@@ -488,16 +490,15 @@ def build_pitcher_clusters(
     cluster_scaler = StandardScaler()
     x = cluster_scaler.fit_transform(working[CLUSTER_FEATURES])
     max_components = min(max_clusters, 9, len(working))
-    min_components = 4 if max_components >= 4 else 2
+    ks = list(range(4, max_components + 1)) if max_components >= 4 else []
 
-    if len(working) < 24 or max_components < min_components:
-        best_model = GaussianMixture(n_components=1, covariance_type="full", random_state=42)
-        best_model.fit(x)
-        labels = np.zeros(len(working), dtype=int)
+    if not ks:
+        fallback_k = 2 if len(working) >= 2 else 1
+        best_model = GaussianMixture(n_components=fallback_k, covariance_type="full", random_state=42)
+        labels = best_model.fit_predict(x)
     else:
         bic_scores: list[float] = []
         model_by_k: dict[int, GaussianMixture] = {}
-        ks = list(range(min_components, max_components + 1))
         for components in ks:
             model = GaussianMixture(n_components=components, covariance_type="full", random_state=42)
             model.fit(x)
@@ -506,8 +507,10 @@ def build_pitcher_clusters(
 
         if KneeLocator is not None:
             knee = KneeLocator(ks, bic_scores, curve="convex", direction="decreasing")
-            optimal_k = int(knee.elbow) if knee.elbow is not None else ks[int(np.argmin(bic_scores))]
+            optimal_k = int(knee.elbow) if knee.elbow is not None else 2
         else:
+            optimal_k = 2 if 2 in ks else ks[int(np.argmin(bic_scores))]
+        if optimal_k not in model_by_k:
             optimal_k = ks[int(np.argmin(bic_scores))]
         best_model = model_by_k[optimal_k]
         labels = best_model.predict(x)

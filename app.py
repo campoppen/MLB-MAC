@@ -11,7 +11,7 @@ from mac_engine import load_dataset, run_mac
 
 
 APP_DIR = __import__("pathlib").Path(__file__).resolve().parent
-DEFAULT_DATA_ROOT = "/Users/cameronpoppen/Desktop/Baseball/MLB Statcast/statcast_2024_2025.csv"
+DEFAULT_DATA_ROOT = str(APP_DIR / "data")
 SIMILARITY_THRESHOLD = 0.6
 MIN_COMP_PITCHES = 0
 MAX_PITCH_CLUSTERS = 8
@@ -31,17 +31,7 @@ DEFAULT_HITTER_NAMES = [
 DEFAULT_HITTER_ID_HINTS = {
     "NYY": ["650402", "665742", "592450", "519317", "665862", "519203", "683011", "669224", "657077"],
 }
-PLAYER_ID_NAME_OVERRIDES = {
-    "650402": "Gleyber Torres",
-    "665742": "Juan Soto",
-    "592450": "Aaron Judge",
-    "519317": "Giancarlo Stanton",
-    "665862": "Jazz Chisholm Jr",
-    "519203": "Anthony Rizzo",
-    "683011": "Anthony Volpe",
-    "669224": "Austin Wells",
-    "657077": "Alex Verdugo",
-}
+PLAYER_ID_NAME_OVERRIDES = {}
 PITCH_TYPE_BASE_COLORS = {
     "4-Seam Fastball": "#d94841",
     "Fastball": "#d94841",

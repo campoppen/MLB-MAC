@@ -6,6 +6,7 @@ from typing import Iterable
 
 import numpy as np
 import pandas as pd
+import pyarrow.parquet as pq
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
 
@@ -134,13 +135,18 @@ class MacAnalysis:
     skipped_files: list[dict[str, str]]
 
 
-def discover_csv_files(data_root: str | Path) -> list[Path]:
+def discover_data_files(data_root: str | Path) -> list[Path]:
     root = Path(data_root).expanduser()
     if not root.exists():
         return []
-    if root.is_file() and root.suffix.lower() == ".csv":
+    if root.is_file() and root.suffix.lower() in {".csv", ".parquet"}:
         return [root]
-    return sorted(path for path in root.rglob("*.csv") if path.is_file())
+    paths = [
+        path
+        for path in root.rglob("*")
+        if path.is_file() and path.suffix.lower() in {".csv", ".parquet"}
+    ]
+    return sorted(paths)
 
 
 def _safe_read_csv(path: Path) -> pd.DataFrame:
@@ -175,14 +181,24 @@ def _safe_read_csv(path: Path) -> pd.DataFrame:
     raise ValueError(f"Could not read supported columns from {path}")
 
 
+def _safe_read_parquet(path: Path) -> pd.DataFrame:
+    available = pq.read_schema(path).names
+    frame = pd.read_parquet(path, columns=[col for col in STATCAST_REQUIRED_COLUMNS if col in available])
+    frame["source_file"] = path.name
+    return frame
+
+
 def load_dataset(data_root: str | Path) -> tuple[pd.DataFrame, list[dict[str, str]]]:
-    files = discover_csv_files(data_root)
+    files = discover_data_files(data_root)
     frames: list[pd.DataFrame] = []
     skipped: list[dict[str, str]] = []
 
     for path in files:
         try:
-            frames.append(_safe_read_csv(path))
+            if path.suffix.lower() == ".parquet":
+                frames.append(_safe_read_parquet(path))
+            else:
+                frames.append(_safe_read_csv(path))
         except Exception as exc:  # noqa: BLE001
             skipped.append({"file": path.name, "reason": str(exc)})
 

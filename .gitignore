@@ -1,0 +1,4 @@
+__pycache__/
+*.py[cod]
+.DS_Store
+mlb_mac_distance_check.ipynb

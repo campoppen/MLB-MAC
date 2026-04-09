@@ -122,6 +122,40 @@ WOBA_MAP = {
 }
 
 
+def compute_min_distances_chunked(
+    data_values: np.ndarray,
+    pitcher_values: np.ndarray,
+    *,
+    chunk_size: int = 25000,
+) -> np.ndarray:
+    if len(data_values) == 0 or len(pitcher_values) == 0:
+        return np.array([], dtype=float)
+
+    mins = np.empty(len(data_values), dtype=float)
+    for start in range(0, len(data_values), chunk_size):
+        end = min(start + chunk_size, len(data_values))
+        chunk = data_values[start:end]
+        deltas = chunk[:, None, :] - pitcher_values[None, :, :]
+        mins[start:end] = np.sqrt((deltas ** 2).sum(axis=2)).min(axis=1)
+    return mins
+
+
+def predict_clusters_chunked(
+    model: GaussianMixture,
+    values: np.ndarray,
+    *,
+    chunk_size: int = 50000,
+) -> np.ndarray:
+    if len(values) == 0:
+        return np.array([], dtype=int)
+
+    parts: list[np.ndarray] = []
+    for start in range(0, len(values), chunk_size):
+        end = min(start + chunk_size, len(values))
+        parts.append(model.predict(values[start:end]))
+    return np.concatenate(parts).astype(int, copy=False)
+
+
 class MacAnalysis:
     def __init__(
         self,
@@ -356,15 +390,14 @@ def run_mac(
     scan_scaler = StandardScaler()
     data_scaled = scan_scaler.fit_transform(data[SIMILARITY_FEATURES])
     pitcher_scaled = scan_scaler.transform(pitcher_df[SIMILARITY_FEATURES])
-    deltas = data_scaled[:, None, :] - pitcher_scaled[None, :, :]
-    data["MinDistToPitcher"] = np.sqrt((deltas ** 2).sum(axis=2)).min(axis=1)
+    data["MinDistToPitcher"] = compute_min_distances_chunked(data_scaled, pitcher_scaled)
 
     data["PitchGroup"] = pd.NA
     data["PitchCluster"] = pd.NA
     cluster_ready = data.dropna(subset=CLUSTER_FEATURES).copy()
     if not cluster_ready.empty:
         cluster_ready_scaled = cluster_scaler.transform(cluster_ready[CLUSTER_FEATURES])
-        cluster_ready["PitchCluster"] = cluster_model.predict(cluster_ready_scaled)
+        cluster_ready["PitchCluster"] = predict_clusters_chunked(cluster_model, cluster_ready_scaled)
         cluster_ready["PitchGroup"] = cluster_ready["PitchCluster"].map(cluster_to_type).fillna("Unknown")
         data.loc[cluster_ready.index, "PitchCluster"] = cluster_ready["PitchCluster"]
         data.loc[cluster_ready.index, "PitchGroup"] = cluster_ready["PitchGroup"]

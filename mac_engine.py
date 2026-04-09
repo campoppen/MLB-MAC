@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
@@ -123,16 +122,27 @@ WOBA_MAP = {
 }
 
 
-@dataclass
 class MacAnalysis:
-    raw_data: pd.DataFrame
-    pitcher_clusters: pd.DataFrame
-    pitcher_cluster_points: pd.DataFrame
-    matchup_summary: pd.DataFrame
-    cluster_matchups: pd.DataFrame
-    similar_pitches: pd.DataFrame
-    distance_samples: pd.DataFrame
-    skipped_files: list[dict[str, str]]
+    def __init__(
+        self,
+        *,
+        raw_data: pd.DataFrame,
+        pitcher_clusters: pd.DataFrame,
+        pitcher_cluster_points: pd.DataFrame,
+        matchup_summary: pd.DataFrame,
+        cluster_matchups: pd.DataFrame,
+        similar_pitches: pd.DataFrame,
+        distance_samples: pd.DataFrame,
+        skipped_files: list[dict[str, str]],
+    ) -> None:
+        self.raw_data = raw_data
+        self.pitcher_clusters = pitcher_clusters
+        self.pitcher_cluster_points = pitcher_cluster_points
+        self.matchup_summary = matchup_summary
+        self.cluster_matchups = cluster_matchups
+        self.similar_pitches = similar_pitches
+        self.distance_samples = distance_samples
+        self.skipped_files = skipped_files
 
 
 def discover_data_files(data_root: str | Path) -> list[Path]:

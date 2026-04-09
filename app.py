@@ -211,7 +211,7 @@ if reload_requested:
 data, skipped_files = cached_load_dataset(DEFAULT_DATA_ROOT)
 
 if data.empty:
-    st.error("No usable CSV data was found. Check the folder path and file schema.")
+    st.error("No usable CSV or Parquet data was found. Check the folder path and file schema.")
     st.stop()
 
 st.sidebar.metric("Usable pitches", f"{len(data):,}")

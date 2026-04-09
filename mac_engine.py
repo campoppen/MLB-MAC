@@ -359,15 +359,13 @@ def run_mac(
     deltas = hitter_values[:, None, :] - reference_values[None, :, :]
     data["MinDistToPitcher"] = np.sqrt((deltas ** 2).sum(axis=2)).min(axis=1)
 
+    data["PitchGroup"] = pd.NA
     cluster_ready = data.dropna(subset=CLUSTER_FEATURES).copy()
-    cluster_ready_scaled = cluster_scaler.transform(cluster_ready[CLUSTER_FEATURES])
-    cluster_ready["PitchCluster"] = cluster_model.predict(cluster_ready_scaled)
-    cluster_ready["PitchGroup"] = cluster_ready["PitchCluster"].map(cluster_to_type).fillna("Unknown")
-    data = data.merge(
-        cluster_ready[["Date", "Batter", "Pitcher", "PitchGroup"]],
-        on=["Date", "Batter", "Pitcher"],
-        how="left",
-    )
+    if not cluster_ready.empty:
+        cluster_ready_scaled = cluster_scaler.transform(cluster_ready[CLUSTER_FEATURES])
+        cluster_ready["PitchCluster"] = cluster_model.predict(cluster_ready_scaled)
+        cluster_ready["PitchGroup"] = cluster_ready["PitchCluster"].map(cluster_to_type).fillna("Unknown")
+        data.loc[cluster_ready.index, "PitchGroup"] = cluster_ready["PitchGroup"]
 
     cluster_rows: list[dict[str, object]] = []
     similar_pitch_rows: list[pd.DataFrame] = []

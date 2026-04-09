@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import traceback
+
 import altair as alt
 import numpy as np
 import pandas as pd
@@ -983,14 +985,19 @@ current_run_config = {
 }
 
 if run_clicked:
-    analysis = run_mac(
-        data,
-        pitcher_name=selected_pitcher,
-        hitters=selected_hitters,
-        similarity_threshold=SIMILARITY_THRESHOLD,
-        min_similar_pitches=MIN_COMP_PITCHES,
-        max_clusters=MAX_PITCH_CLUSTERS,
-    )
+    try:
+        analysis = run_mac(
+            data,
+            pitcher_name=selected_pitcher,
+            hitters=selected_hitters,
+            similarity_threshold=SIMILARITY_THRESHOLD,
+            min_similar_pitches=MIN_COMP_PITCHES,
+            max_clusters=MAX_PITCH_CLUSTERS,
+        )
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Run Complete MAC Analysis failed: {exc}")
+        st.code(traceback.format_exc())
+        st.stop()
 
     st.session_state["mac_last_run"] = {
         "config": current_run_config,
